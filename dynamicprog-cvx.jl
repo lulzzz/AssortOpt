@@ -1,7 +1,7 @@
 
 function dynamicprogCvx(I::InstanceCvx)
   #=
-  Collapsed dynamic program on the quasi-convex instance
+  Collapsed DP on the quasi-convex instance
   =#
   # Matrix containing the rankings functions over products
   ranking_mat = zeros((I.instance.nb_cst_type,I.instance.nb_prod+1))
@@ -13,6 +13,11 @@ function dynamicprogCvx(I::InstanceCvx)
   # Optimal dynamic programming decisions
   decision_bin = zeros((I.instance.nb_prod+1,I.instance.nb_prod))
 
+  # for k = 1:I.instance.nb_cst_type
+  #   ranking_mat[k,(1+I.left_endpoints[k]):(1+I.right_endpoints[k])] = 1
+  #   ranking_mat[k,2:] = ranking_mat[k,2:].*I.rankings[k,:]
+  # end
+
   # Backward induction
   for i1 = 3:(I.instance.nb_prod+1)
     for i2 = 2:(i1-1)
@@ -20,7 +25,8 @@ function dynamicprogCvx(I::InstanceCvx)
       d_list = [
                 (
                 decision_value[i2,i3] +
-                sum(I.instance.lambdas.*(ranking_mat[:,i2] .> ranking_mat[:,i3]).*(ranking_mat[:,i2] .>= ranking_mat[:,i1]))*
+                sum(I.instance.lambdas.*(ranking_mat[:,i2] .>
+                ranking_mat[:,i3]).*(ranking_mat[:,i2] .>= ranking_mat[:,i1]))*
                 I.instance.prices[i2-1],
                 i3
                 )
@@ -52,7 +58,11 @@ function MIPsolver(ICM::InstanceCvx)
   t0 = tic()
   m = Model(solver = GurobiSolver(OutputFlag=0, MIPGap = 0.01, TimeLimit = 1000))
   @variable(m, Assortment[1:ICM.instance.nb_prod],Bin)
-  @variable(m, X_purchase[u = 1:ICM.instance.nb_cst_type,v=find(ICM.instance.consideration_sets[u,:])],Bin)
+  @variable(m, X_purchase[
+                          u = 1:ICM.instance.nb_cst_type,
+                          v=find(ICM.instance.consideration_sets[u,:])
+                          ],
+              Bin)
 
   for k = 1:ICM.instance.nb_cst_type
     #println(size(X_purchase[k,:]))
@@ -69,11 +79,19 @@ function MIPsolver(ICM::InstanceCvx)
       end
     end
 
-    # Tightening
+    # Tightening of the LP
     @constraint(m, sum([X_purchase[k,i] for i in find(ICM.instance.consideration_sets[k,:])]) <= 1.)
 
   end
-  @objective(m, Max, sum([ICM.instance.lambdas[k]*sum([X_purchase[k,i]*ICM.instance.prices[i] for i in find(ICM.instance.consideration_sets[k,:])]) for k=1:ICM.instance.nb_cst_type]))
+  @objective(m, Max, sum([
+                          ICM.instance.lambdas[k]*
+                          sum([X_purchase[k,i]*ICM.instance.prices[i]
+                               for i in find(ICM.instance.consideration_sets[k,:])]
+                             )
+                          for k=1:ICM.instance.nb_cst_type
+                          ]
+                        )
+            )
   tic()
   status = solve(m)
   return(toq())

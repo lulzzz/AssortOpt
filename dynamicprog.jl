@@ -4,7 +4,7 @@
 ##############################################################################
 
 type recursiveGraph
-  # Problem Instance
+  # Our Instanceu
   instance::Instance
   # Subproblem to depth array
   depth::Vector{Int64}
@@ -16,11 +16,11 @@ type recursiveGraph
   decision_value::Array{Float64,2}
   # Subproblem value
   DP_value::Vector{Float64}
-  # Dictionary from bit name to int name (synchronicity)
+  # Dictionary from bit name to int name (in preparation of parallelization)
   name_synchronicity::Dict{BitArray{1},Int64}
   # Next name available
   maximal_name::Int64
-  # Father nodes & decisions
+  # Father nodes
   father_name::Dict{Int64,Vector{Int64}}
   father_decision::Dict{Int64,Vector{Int64}}
   recursiveGraph(I::Instance,
@@ -74,9 +74,11 @@ function generateSubproblems(S::Subproblem,product::Int64,R::recursiveGraph)
   indices = vcat(indices_prod,~R.instance.consideration_sets[:,product])&(S.subgraph)
 
   #Indices of consideration sets being allocated
-  bool_indices_allocation = (R.instance.consideration_sets[:,product]
-                            & (S.subgraph[(R.instance.nb_prod+1):(R.instance.nb_prod+R.instance.nb_cst_type)])
+  bool_indices_allocation = (R.instance.consideration_sets[:,product] &
+                             (S.subgraph[(R.instance.nb_prod+1):(R.instance.nb_prod+R.instance.nb_cst_type)
+                                          ]
                               )
+                            )
 
   #(subgraph,name_dict) = induced_subgraph(R.instance.master_graph,indices)
   #connected_subgraphs = connected_components(subgraph)
@@ -114,7 +116,7 @@ function generateSubproblems(S::Subproblem,product::Int64,R::recursiveGraph)
       end
       i += 1
     end
-    #TO DO: Treat the terminating childs
+    #TODO Refinement: Treat the terminating childs
   end
   #Immediate reward
   R.decision_value[S.name,product] = (R.instance.prices[product]*
@@ -135,43 +137,48 @@ function iteration(R::recursiveGraph)
   nc = R.instance.nb_cst_type
 
   while (size(R.unmarked_nodes)[1] > 0)
-    #Regime k >> N
-    for x in find(S.subgraph[1:R.instance.nb_prod])
+    ##Regime k >> N
+    #for x in find(S.subgraph[1:R.instance.nb_prod])
+    #   generateSubproblems(S,x,R)
+    #end
+    #Regime N >> k
+    S = shift!(R.unmarked_nodes)
+    #Eliminates redundant products
+    find_prod = find(S.subgraph[1:np])
+    mat = R.instance.consideration_sets[find(S.subgraph[(np+1):(np+nc)]),find_prod]
+    a = []
+    for i = 1:(size(mat,2)-1)
+      if (mat[:,i] != mat[:,i+1])
+        push!(a,i)
+      end
+    end
+    push!(a,size(mat,2))
+    for x in find_prod[a]
       generateSubproblems(S,x,R)
     end
-    # #Regime N >> k
-    # S = shift!(R.unmarked_nodes)
-    # #Eliminates redundant products
-    # find_prod = find(S.subgraph[1:np])
-    # mat = R.instance.consideration_sets[find(S.subgraph[(np+1):(np+nc)]),find_prod]
-    # a = []
-    # for i = 1:(size(mat,2)-1)
-    #   if (mat[:,i] != mat[:,i+1])
-    #     push!(a,i)
-    #   end
-    # end
-    # push!(a,size(mat,2))
-    # for x in find_prod[a]
-    #   generateSubproblems(S,x,R)
-    # end
   end
 end
 
 
 function solveLP(R::recursiveGraph)
   #=
-  Function encoding  the second-pass to solve the recursion
+  Function encoding the second-pass to solve the recursion
   (Alternative to backward recursion)
   =#
   t0 = tic()
   m = Model(solver = GurobiSolver(OutputFlag= 0))
   @defVar(m,Decisions[1:(R.maximal_name-1),1:R.instance.nb_prod]>=0)
-  @addConstraint(m,sum{Decisions[1,decision], decision = 1:R.instance.nb_prod ; R.decision_value[1,decision]> 0}
+  @addConstraint(m,sum{Decisions[1,decision],
+                       decision = 1:R.instance.nb_prod ;
+                       R.decision_value[1,decision]> 0}
                     == 1.)
   @addConstraints(m, begin
                   sum_to_one[subprob = 2:(R.maximal_name-1)],
                   - sum{
-                        Decisions[R.father_name[subprob][u],R.father_decision[subprob][u]], u = 1:size(R.father_decision[subprob],1)
+                        Decisions[R.father_name[subprob][u],
+                                  R.father_decision[subprob][u]
+                                  ],
+                        u = 1:size(R.father_decision[subprob],1)
                         } +
                     sum{
                         Decisions[subprob,decision], decision = 1:R.instance.nb_prod ;

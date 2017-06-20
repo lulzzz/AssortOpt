@@ -15,6 +15,10 @@ include("instancegen-cvx.jl")
 # Cvx DP & MIP solver
 include("dynamicprog-cvx.jl")
 
+# Estimation methods
+include("learning-cvx.jl")
+include("learning-mmnl.jl")
+
 function run_computational()
   time_c = zeros(3,4,2,20)
   for (ib,b) in enumerate([0.3,0.5,0.7])

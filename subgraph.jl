@@ -7,12 +7,11 @@ type Subproblem
   #Define a Subproblem as a remaining lists (boolean) and minimal/most preferred product
   subgraph::BitArray{1} #Subgraph encoded as a list of bits
   minimal_prod::Int64 #Most preferred product in the graph
-  name::Int64 #name (TO DO fast hashing)
+  name::Int64 #name (fast hashing TO DO)
   depth::Int64 #Depth in the tree, at the moment it is created
   Subproblem() = new(BitArray(1),Int64(0),Int64(0),Int64(0))
   Subproblem(s::BitArray{1},m::Int64,n::Int64,d::Int64) = new(s,m,n,d)
 end
-
 
 function induced_subgraph{T<:SimpleGraph}(g::T, iter)
     n = length(iter)
@@ -40,7 +39,6 @@ function induced_subgraph{T<:SimpleGraph}(g::T, iter)
     end
     return h,oldvid
 end
-
 
 function connected_components!(label::Vector{Int}, g::SimpleGraph, subgraph::BitArray{1})
     # this version of connected components uses Breadth First Traversal
@@ -99,7 +97,6 @@ function breadth_first_visit_impl!(
     nothing
 end
 
-
 function traverse_graph(
     graph::SimpleGraph,
     alg::BreadthFirst,
@@ -117,14 +114,12 @@ function traverse_graph(
     breadth_first_visit_impl!(graph, que, colormap, visitor,subgraph)
 end
 
-
 function connected_components(g::LightGraphs.Graph,i::BitArray{1})
     label = zeros(Int, nv(g))
     connected_components!(label, g,i)
     c, d = components(label)
     return c
 end
-
 
 function components(labels::Vector{Int})
     d = Dict{Int, Int}()
