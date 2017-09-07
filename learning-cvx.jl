@@ -90,11 +90,12 @@ function learning!(ICM::InstanceCvx, steps::Int64, k_0::Int64 = 1, switch::Int64
       ICM.rankings[k,:] = 1
       #ICM.instance.lambdas[1] = 1.0
     elseif switch == 0
-      #best_ranking_bigMIP!(ICM,k,1.)
-      if mod(k,2)==0
-        best_ranking_heuristicLS!(ICM,k)
-      else
-        best_ranking_DP!(ICM,k)
+      best_ranking_heuristicLS!(ICM,k)
+#       best_ranking_bigMIP!(ICM,k,1.)
+#       if mod(k,2)==0
+#         best_ranking_heuristicLS!(ICM,k)
+#       else
+#         best_ranking_DP!(ICM,k)
       end
     elseif switch == 1
       best_ranking_heuristicNeigh!(ICM,k)
